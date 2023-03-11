@@ -7,18 +7,20 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('users', '0003_referalusermodel_invited_by_and_more'),
+        ("users", "0003_referalusermodel_invited_by_and_more"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='referalusermodel',
-            name='affected_parents_deposit',
+            model_name="referalusermodel",
+            name="affected_parents_deposit",
             field=models.BooleanField(default=False, editable=False),
         ),
         migrations.AddField(
-            model_name='referalusermodel',
-            name='deposit',
-            field=models.DecimalField(decimal_places=2, default=Decimal('0'), max_digits=10),
+            model_name="referalusermodel",
+            name="deposit",
+            field=models.DecimalField(
+                decimal_places=2, default=Decimal("0"), max_digits=10
+            ),
         ),
     ]

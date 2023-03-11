@@ -7,18 +7,24 @@ import django.db.models.deletion
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('users', '0002_alter_referalusermodel_referal_id'),
+        ("users", "0002_alter_referalusermodel_referal_id"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='referalusermodel',
-            name='invited_by',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='invited', to='users.referalusermodel'),
+            model_name="referalusermodel",
+            name="invited_by",
+            field=models.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                related_name="invited",
+                to="users.referalusermodel",
+            ),
         ),
         migrations.AddField(
-            model_name='referalusermodel',
-            name='referal_lvl',
+            model_name="referalusermodel",
+            name="referal_lvl",
             field=models.IntegerField(default=1),
         ),
     ]

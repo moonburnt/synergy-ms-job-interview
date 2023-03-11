@@ -9,16 +9,14 @@ log = logging.getLogger(__name__)
 class SmallReferalUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = ReferalUserModel
-        fields = (
-            "referal_id",
-            "referal_lvl"
-        )
+        fields = ("referal_id", "referal_lvl")
         read_only_fields = fields
+
 
 class ReferalUserSerializer(serializers.ModelSerializer):
     invited_by = serializers.CharField(
         read_only=True,
-        source = "invited_by.referal_id",
+        source="invited_by.referal_id",
     )
 
     class Meta:

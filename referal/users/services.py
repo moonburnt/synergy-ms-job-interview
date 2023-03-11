@@ -6,12 +6,13 @@ from json import load
 
 log = logging.getLogger(__name__)
 
+
 def _add_user_from_dict(d: dict, invited_by: Optional[ReferalUserModel] = None):
     # No safety checks for format validness, for now
     ref_id = d["id"]
     print(f"Adding user with ref id {ref_id}")
     ref_model = ReferalUserModel.objects.get_or_create(
-        referal_id = ref_id,
+        referal_id=ref_id,
         invited_by=invited_by,
     )[0]
 
@@ -20,8 +21,8 @@ def _add_user_from_dict(d: dict, invited_by: Optional[ReferalUserModel] = None):
     if isinstance(d["refs"], list) and len(d["refs"]) > 0:
         for i in d["refs"]:
             _add_user_from_dict(
-                d = i,
-                invited_by = ref_model,
+                d=i,
+                invited_by=ref_model,
             )
 
 
@@ -31,9 +32,4 @@ def add_users_from_json(path_to_json: Union[str, Path]):
 
     _add_user_from_dict(data)
 
-    print(ReferalUserModel.objects.count())
-
-    # for
-
-
-    # Now, lets build relations
+    print("Done")

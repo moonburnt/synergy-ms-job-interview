@@ -27,7 +27,7 @@ class ReferalUserViewSet(viewsets.ReadOnlyModelViewSet):
     # We could allow adding deposits via PATCH requests, but that may be a bit
     # more troublesome to implement
     @action(
-        methods = ("post",),
+        methods=("post",),
         detail=True,
     )
     def add_deposit(self, request, **kwargs) -> Response:
@@ -36,20 +36,20 @@ class ReferalUserViewSet(viewsets.ReadOnlyModelViewSet):
         user: models.ReferalUserModel = self.get_object()
 
         serialized = self.get_serializer(
-            instance = user,
-            data = request.data,
+            instance=user,
+            data=request.data,
         )
 
         serialized.is_valid(raise_exception=True)
         serialized.save()
 
         return Response(
-            data = serialized.data,
-            status = status.HTTP_200_OK,
+            data=serialized.data,
+            status=status.HTTP_200_OK,
         )
 
     @action(
-        methods = ("get",),
+        methods=("get",),
         detail=True,
     )
     def detailed(self, request, **kwargs) -> Response:
@@ -58,10 +58,10 @@ class ReferalUserViewSet(viewsets.ReadOnlyModelViewSet):
         user: models.ReferalUserModel = self.get_object()
 
         serialized = self.get_serializer(
-            instance = user,
+            instance=user,
         )
 
         return Response(
-            data = serialized.data,
-            status = status.HTTP_200_OK,
+            data=serialized.data,
+            status=status.HTTP_200_OK,
         )
