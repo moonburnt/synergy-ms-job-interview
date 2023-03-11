@@ -1,6 +1,6 @@
 from django.db import models
 from typing import Optional
-from django_lifecycle import LifecycleModelMixin, hook, AFTER_CREATE
+from django_lifecycle import LifecycleModelMixin, hook, AFTER_CREATE, AFTER_SAVE
 from decimal import Decimal
 
 # Since we didn't get any user data, assuming referal info is a standalone model,
@@ -31,6 +31,14 @@ class ReferalUserModel(LifecycleModelMixin, models.Model):
     # Once it reach the hardcoded value of 120$, everyone who invited that
     # user get their referal money and affected_parents_deposit changes to True
     deposit = models.DecimalField(
+        max_digits = 10,
+        decimal_places = 2,
+        default = Decimal(0.00),
+    )
+    # Bonus money, separated from deposit.
+    # This won't trigger on_deposit hook and may come handy if deposit bonus
+    # will later be needed to exhaust overtime or something like that
+    bonus_deposit = models.DecimalField(
         max_digits = 10,
         decimal_places = 2,
         default = Decimal(0.00),
@@ -96,6 +104,106 @@ class ReferalUserModel(LifecycleModelMixin, models.Model):
             self.invited_by.update_lvl()
             self.invited_by.recursively_update_parent_lvls()
 
+    def grant_indirect_referal_deposit_bonuses(self):
+        """Grant deposit bonus to parent, after user obtained its own"""
+
+        print("Attempting to grant indirect referal deposit bonuses")
+
+        # I assume this one is not recursive?
+        if not self.invited_by:
+            return
+
+        if self.referal_lvl >= 3:
+            if self.invited_by.referal_lvl <= self.referal_lvl:
+                # Not doing anything, as members of lvl 3 or above don't grant
+                # referal deposit money if their level match or beat their
+                # inviteer's lvl
+                return
+        else:
+            # I think there are some cases when this may not work the intended way?
+            # Not quite sure, just a thought that struggled my mind #TODO
+
+            bonus_money = Decimal(0.00)
+
+            if self.invited_by.referal_lvl == 2:
+                bonus_money = Decimal(10.00)
+            elif self.invited_by.referal_lvl == 3:
+                if self.referal_lvl == 1:
+                    bonus_money = Decimal(20.00)
+                elif self.referal_lvl == 2:
+                    bonus_money = Decimal(10.00)
+            elif self.invited_by.referal_lvl == 4:
+                if self.referal_lvl == 1:
+                    bonus_money = Decimal(30.00)
+                elif self.referal_lvl == 2:
+                    bonus_money = Decimal(20.00)
+                elif self.referal_lvl == 3:
+                    bonus_money = Decimal(10.00)
+            elif self.invited_by.referal_lvl == 5:
+                if self.referal_lvl == 1:
+                    bonus_money = Decimal(35.00)
+                elif self.referal_lvl == 2:
+                    bonus_money = Decimal(25.00)
+                elif self.referal_lvl == 3:
+                    bonus_money = Decimal(15.00)
+                elif self.referal_lvl == 4:
+                    bonus_money = Decimal(5.00)
+            elif self.invited_by.referal_lvl == 6:
+                if self.referal_lvl == 1:
+                    bonus_money = Decimal(40.00)
+                elif self.referal_lvl == 2:
+                    bonus_money = Decimal(30.00)
+                elif self.referal_lvl == 3:
+                    bonus_money = Decimal(20.00)
+                elif self.referal_lvl == 4:
+                    bonus_money = Decimal(10.00)
+                elif self.referal_lvl == 5:
+                    bonus_money = Decimal(5.00)
+
+            if bonus_money > 0:
+                print(f"Granting {bonus_money} bonuses to {self.invited_by.referal_id} as indirect deposit bonus")
+                self.invited_by.bonus_deposit += bonus_money
+
+                self.invited_by.save(
+                    update_fields = ("bonus_deposit",)
+                )
+
+
+    def grant_direct_referal_deposit_bonuses(self):
+        if self.affected_parents_deposit:
+            print(
+                f"User {self.referal_id} has already granted bonuses to inviteers"
+            )
+            return
+        else:
+            print("Attempting to grant direct referal deposit bonuses")
+
+            if self.invited_by:
+                bonus_money = Decimal(0.00)
+                if self.invited_by.referal_lvl == 1:
+                    bonus_money = Decimal(30.00)
+                elif self.invited_by.referal_lvl == 2:
+                    bonus_money = Decimal(40.00)
+                elif self.invited_by.referal_lvl == 3:
+                    bonus_money = Decimal(50.00)
+                elif self.invited_by.referal_lvl == 4:
+                    bonus_money = Decimal(60.00)
+                elif self.invited_by.referal_lvl == 5:
+                    bonus_money = Decimal(65.00)
+                elif self.invited_by.referal_lvl == 6:
+                    bonus_money = Decimal(70.00)
+
+                self.invited_by.grant_indirect_referal_deposit_bonuses()
+
+                print(f"Granting {bonus_money} to {self.invited_by.referal_id} as direct deposit bonus")
+                self.invited_by.bonus_deposit += bonus_money
+                self.invited_by.save(update_fields=("bonus_deposit",),)
+
+            self.affected_parents_deposit = True
+            self.save(
+                update_fields=("affected_parents_deposit",)
+            )
+
     # This may be slow if we create multiple users at once without batch_create
     # However, during normal workflow it *should* be fine
     @hook(
@@ -105,5 +213,25 @@ class ReferalUserModel(LifecycleModelMixin, models.Model):
     def perform_after_create_hook(self):
         self.recursively_update_parent_lvls()
 
+    @hook(
+        AFTER_SAVE,
+        when="deposit",
+        has_changed=True,
+        on_commit=True,
+    )
+    def perform_on_deposit_hook(self):
+        print(f"Performing on deposit hook of {self.referal_id}")
+        if not self.affected_parents_deposit and self.deposit >= 120:
+            self.grant_direct_referal_deposit_bonuses()
+
+            self.affected_parents_deposit = True
+            self.save(
+                update_fields = ("affected_parents_deposit",),
+            )
+
     def __str__(self):
-        return f"id: {self.referal_id}, lvl: V{self.referal_lvl}"
+        return (
+            f"id: {self.referal_id}, "
+            f"deposit: {self.deposit}, "
+            f"lvl: V{self.referal_lvl}"
+        )
