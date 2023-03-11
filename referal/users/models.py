@@ -32,4 +32,4 @@ class ReferalUserModel(models.Model):
     )
 
     def __str__(self):
-        return self.referal_id
+        return f"id: {self.referal_id}, lvl: V{self.referal_lvl}"
