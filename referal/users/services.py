@@ -7,13 +7,13 @@ from json import load
 log = logging.getLogger(__name__)
 
 
-def _add_user_from_dict(d: dict, invited_by: Optional[ReferalUserModel] = None):
+def _add_user_from_dict(d: dict, parent: Optional[ReferalUserModel] = None):
     # No safety checks for format validness, for now
     ref_id = d["id"]
     print(f"Adding user with ref id {ref_id}")
     ref_model = ReferalUserModel.objects.get_or_create(
         referal_id=ref_id,
-        invited_by=invited_by,
+        parent=parent,
     )[0]
 
     # This will take a while, coz its not a bulk create.
@@ -22,7 +22,7 @@ def _add_user_from_dict(d: dict, invited_by: Optional[ReferalUserModel] = None):
         for i in d["refs"]:
             _add_user_from_dict(
                 d=i,
-                invited_by=ref_model,
+                parent=ref_model,
             )
 
 

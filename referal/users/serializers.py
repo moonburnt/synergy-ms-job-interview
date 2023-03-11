@@ -14,9 +14,9 @@ class SmallReferalUserSerializer(serializers.ModelSerializer):
 
 
 class ReferalUserSerializer(serializers.ModelSerializer):
-    invited_by = serializers.CharField(
+    parent = serializers.CharField(
         read_only=True,
-        source="invited_by.referal_id",
+        source="parent.referal_id",
     )
 
     class Meta:

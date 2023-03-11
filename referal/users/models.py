@@ -1,11 +1,13 @@
 from django.db import models
 from typing import Optional
 from django_lifecycle import LifecycleModelMixin, hook, AFTER_CREATE, AFTER_SAVE
+from mptt.models import MPTTModel, TreeForeignKey
 from decimal import Decimal
 
 # Since we didn't get any user data, assuming referal info is a standalone model,
 # either related to AUTH_USER_MODEL as OneToOne or unrelated at all
-class ReferalUserModel(LifecycleModelMixin, models.Model):
+# class ReferalUserModel(LifecycleModelMixin, models.Model):
+class ReferalUserModel(LifecycleModelMixin, MPTTModel):
     # Not touching the model's id, since it may negatively affect performance
     referal_id = models.CharField(
         unique=True,
@@ -19,9 +21,10 @@ class ReferalUserModel(LifecycleModelMixin, models.Model):
         default=1,
     )
 
-    invited_by = models.ForeignKey(
-        to="users.ReferalUserModel",
-        related_name="invited",
+    # parent = models.ForeignKey(
+    parent = TreeForeignKey(
+        to="self",
+        related_name="children",
         blank=True,
         null=True,
         on_delete=models.SET_NULL,
@@ -50,9 +53,9 @@ class ReferalUserModel(LifecycleModelMixin, models.Model):
 
     def get_direct_descendants_amount(self, lvl: Optional[int] = None):
         if lvl is None:
-            return self.invited.count()
+            return self.children.count()
         else:
-            return self.invited.filter(referal_lvl=lvl).count()
+            return self.children.filter(referal_lvl=lvl).count()
 
     @property
     def direct_descendants(self) -> int:
@@ -63,12 +66,13 @@ class ReferalUserModel(LifecycleModelMixin, models.Model):
         # Note that this can be optimized with a raw sql query
         # This can also be cached or stored as variable
 
-        desc = self.direct_descendants
+        # desc = self.direct_descendants
 
-        for i in self.invited.all():
-            desc += i.total_descendants
+        # for i in self.children.all():
+        #     desc += i.total_descendants
 
-        return desc
+        # return desc
+        return self.get_descendant_count()
 
     # These can be optimized better or re-done at all.
     # The way I see this, is:
@@ -112,9 +116,9 @@ class ReferalUserModel(LifecycleModelMixin, models.Model):
             )
 
     def recursively_update_parent_lvls(self):
-        if self.invited_by:
-            self.invited_by.update_lvl()
-            self.invited_by.recursively_update_parent_lvls()
+        if self.parent:
+            self.parent.update_lvl()
+            self.parent.recursively_update_parent_lvls()
 
     def grant_indirect_referal_deposit_bonuses(self):
         """Grant deposit bonus to parent, after user obtained its own"""
@@ -122,11 +126,11 @@ class ReferalUserModel(LifecycleModelMixin, models.Model):
         print("Attempting to grant indirect referal deposit bonuses")
 
         # I assume this one is not recursive?
-        if not self.invited_by:
+        if not self.parent:
             return
 
         if self.referal_lvl >= 3:
-            if self.invited_by.referal_lvl <= self.referal_lvl:
+            if self.parent.referal_lvl <= self.referal_lvl:
                 # Not doing anything, as members of lvl 3 or above don't grant
                 # referal deposit money if their level match or beat their
                 # inviteer's lvl
@@ -137,21 +141,21 @@ class ReferalUserModel(LifecycleModelMixin, models.Model):
 
             bonus_money = Decimal(0.00)
 
-            if self.invited_by.referal_lvl == 2:
+            if self.parent.referal_lvl == 2:
                 bonus_money = Decimal(10.00)
-            elif self.invited_by.referal_lvl == 3:
+            elif self.parent.referal_lvl == 3:
                 if self.referal_lvl == 1:
                     bonus_money = Decimal(20.00)
                 elif self.referal_lvl == 2:
                     bonus_money = Decimal(10.00)
-            elif self.invited_by.referal_lvl == 4:
+            elif self.parent.referal_lvl == 4:
                 if self.referal_lvl == 1:
                     bonus_money = Decimal(30.00)
                 elif self.referal_lvl == 2:
                     bonus_money = Decimal(20.00)
                 elif self.referal_lvl == 3:
                     bonus_money = Decimal(10.00)
-            elif self.invited_by.referal_lvl == 5:
+            elif self.parent.referal_lvl == 5:
                 if self.referal_lvl == 1:
                     bonus_money = Decimal(35.00)
                 elif self.referal_lvl == 2:
@@ -160,7 +164,7 @@ class ReferalUserModel(LifecycleModelMixin, models.Model):
                     bonus_money = Decimal(15.00)
                 elif self.referal_lvl == 4:
                     bonus_money = Decimal(5.00)
-            elif self.invited_by.referal_lvl == 6:
+            elif self.parent.referal_lvl == 6:
                 if self.referal_lvl == 1:
                     bonus_money = Decimal(40.00)
                 elif self.referal_lvl == 2:
@@ -174,11 +178,11 @@ class ReferalUserModel(LifecycleModelMixin, models.Model):
 
             if bonus_money > 0:
                 print(
-                    f"Granting {bonus_money} bonuses to {self.invited_by.referal_id} as indirect deposit bonus"
+                    f"Granting {bonus_money} bonuses to {self.parent.referal_id} as indirect deposit bonus"
                 )
-                self.invited_by.bonus_deposit += bonus_money
+                self.parent.bonus_deposit += bonus_money
 
-                self.invited_by.save(update_fields=("bonus_deposit",))
+                self.parent.save(update_fields=("bonus_deposit",))
 
     def grant_direct_referal_deposit_bonuses(self):
         if self.affected_parents_deposit:
@@ -187,28 +191,28 @@ class ReferalUserModel(LifecycleModelMixin, models.Model):
         else:
             print("Attempting to grant direct referal deposit bonuses")
 
-            if self.invited_by:
+            if self.parent:
                 bonus_money = Decimal(0.00)
-                if self.invited_by.referal_lvl == 1:
+                if self.parent.referal_lvl == 1:
                     bonus_money = Decimal(30.00)
-                elif self.invited_by.referal_lvl == 2:
+                elif self.parent.referal_lvl == 2:
                     bonus_money = Decimal(40.00)
-                elif self.invited_by.referal_lvl == 3:
+                elif self.parent.referal_lvl == 3:
                     bonus_money = Decimal(50.00)
-                elif self.invited_by.referal_lvl == 4:
+                elif self.parent.referal_lvl == 4:
                     bonus_money = Decimal(60.00)
-                elif self.invited_by.referal_lvl == 5:
+                elif self.parent.referal_lvl == 5:
                     bonus_money = Decimal(65.00)
-                elif self.invited_by.referal_lvl == 6:
+                elif self.parent.referal_lvl == 6:
                     bonus_money = Decimal(70.00)
 
-                self.invited_by.grant_indirect_referal_deposit_bonuses()
+                self.parent.grant_indirect_referal_deposit_bonuses()
 
                 print(
-                    f"Granting {bonus_money} to {self.invited_by.referal_id} as direct deposit bonus"
+                    f"Granting {bonus_money} to {self.parent.referal_id} as direct deposit bonus"
                 )
-                self.invited_by.bonus_deposit += bonus_money
-                self.invited_by.save(
+                self.parent.bonus_deposit += bonus_money
+                self.parent.save(
                     update_fields=("bonus_deposit",),
                 )
 
