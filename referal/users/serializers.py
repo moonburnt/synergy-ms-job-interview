@@ -16,9 +16,14 @@ class SmallReferalUserSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 class ReferalUserSerializer(serializers.ModelSerializer):
+    invited_by = serializers.CharField(
+        read_only=True,
+        source = "invited_by.referal_id",
+    )
+
     class Meta:
         model = ReferalUserModel
-        fields = "__all__"
+        exclude = ("id",)
 
 
 class AddDepositReferalUserSerializer(serializers.ModelSerializer):
