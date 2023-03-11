@@ -74,7 +74,7 @@ class ReferalUserModel(LifecycleModelMixin, models.Model):
     # The way I see this, is:
     # - If we don't use referal lvls for filtering and don't do any batch processing
     # with it, these may be moved to serializer-only fields
-    def update_lvl(self):
+    def update_lvl(self, save:bool = True):
         lvl = 1
 
         if self.total_descendants >= 20:
@@ -107,14 +107,15 @@ class ReferalUserModel(LifecycleModelMixin, models.Model):
 
         if lvl != self.referal_lvl:
             self.referal_lvl = lvl
-            self.save(
-                update_fields=("referal_lvl",),
-            )
+            if save:
+                self.save(
+                    update_fields=("referal_lvl",),
+                )
 
-    def recursively_update_parent_lvls(self):
+    def recursively_update_parent_lvls(self, save: bool = True):
         if self.invited_by:
-            self.invited_by.update_lvl()
-            self.invited_by.recursively_update_parent_lvls()
+            self.invited_by.update_lvl(save=save)
+            self.invited_by.recursively_update_parent_lvls(save=save)
 
     def grant_indirect_referal_deposit_bonuses(self):
         """Grant deposit bonus to parent, after user obtained its own"""
@@ -222,7 +223,7 @@ class ReferalUserModel(LifecycleModelMixin, models.Model):
         on_commit=True,
     )
     def perform_after_create_hook(self):
-        self.recursively_update_parent_lvls()
+        self.recursively_update_parent_lvls(save=True)
 
     @hook(
         AFTER_SAVE,
