@@ -1,8 +1,13 @@
 from django.contrib import admin
 from django.urls import path, include
-from referal.utils import get_default_router
+from rest_framework.routers import DefaultRouter
+from users.views import ReferalUserViewSet
+import logging
 
-router = get_default_router()
+log = logging.getLogger(__name__)
+
+router = DefaultRouter()
+router.register("users", ReferalUserViewSet)
 
 urlpatterns = [
     path('admin/', admin.site.urls),
