@@ -1,6 +1,7 @@
 from django.db import models
 from typing import Optional
 from django_lifecycle import LifecycleModelMixin, hook, AFTER_CREATE
+from decimal import Decimal
 
 # Since we didn't get any user data, assuming referal info is a standalone model,
 # either related to AUTH_USER_MODEL as OneToOne or unrelated at all
@@ -24,6 +25,19 @@ class ReferalUserModel(LifecycleModelMixin, models.Model):
         blank=True,
         null=True,
         on_delete=models.SET_NULL,
+    )
+
+    # Deposit is amount of money stored by our user.
+    # Once it reach the hardcoded value of 120$, everyone who invited that
+    # user get their referal money and affected_parents_deposit changes to True
+    deposit = models.DecimalField(
+        max_digits = 10,
+        decimal_places = 2,
+        default = Decimal(0.00),
+    )
+    affected_parents_deposit = models.BooleanField(
+        default=False,
+        editable=False,
     )
 
     def get_direct_descendants_amount(self, lvl:Optional[int] = None):
