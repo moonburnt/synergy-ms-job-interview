@@ -1,4 +1,4 @@
-from django.db import models
+from django.db import models, connection
 from typing import Optional
 from django_lifecycle import LifecycleModelMixin, hook, AFTER_CREATE, AFTER_SAVE
 from decimal import Decimal
@@ -60,20 +60,25 @@ class ReferalUserModel(LifecycleModelMixin, models.Model):
 
     @property
     def total_descendants(self) -> int:
-        # Note that this can be optimized with a raw sql query
-        # This can also be cached or stored as variable
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                with RECURSIVE get_descendants as (
+                    select id, invited_by_id
+                    from users_referalusermodel
+                    where id = %s
+                    union all
+                    select c.id, c.invited_by_id
+                    from users_referalusermodel c
+                        join get_descendants p on p.id = c.invited_by_id
+                )
+                select COUNT(*)
+                from get_descendants
+                where id <> %s;
+            """, [self.id, self.id])
+            counter: int =  cursor.fetchone()[0]
 
-        desc = self.direct_descendants
+        return counter
 
-        for i in self.invited.all():
-            desc += i.total_descendants
-
-        return desc
-
-    # These can be optimized better or re-done at all.
-    # The way I see this, is:
-    # - If we don't use referal lvls for filtering and don't do any batch processing
-    # with it, these may be moved to serializer-only fields
     def update_lvl(self):
         lvl = 1
 
