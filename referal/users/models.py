@@ -82,33 +82,16 @@ class ReferalUserModel(LifecycleModelMixin, models.Model):
     def update_lvl(self, save: bool = True):
         lvl = 1
 
-        if self.total_descendants >= 20:
-            if self.direct_descendants >= 3:
-                lvl = 2
-        elif self.total_descendants >= 100:
-            if (
-                self.direct_descendants >= 5
-                and self.get_direct_descendants_amount(lvl=2) >= 3
-            ):
-                lvl = 3
-        elif self.total_descendants >= 300:
-            if (
-                self.direct_descendants >= 8
-                and self.get_direct_descendants_amount(lvl=3) >= 3
-            ):
-                lvl = 4
-        elif self.total_descendants >= 800:
-            if (
-                self.direct_descendants >= 12
-                and self.get_direct_descendants_amount(lvl=4) >= 3
-            ):
-                lvl = 5
-        elif self.total_descendants >= 1500:
-            if (
-                self.direct_descendants >= 20
-                and self.get_direct_descendants_amount(lvl=5) >= 3
-            ):
-                lvl = 6
+        if self.total_descendants >= 1500 and self.direct_descendants >= 20 and self.get_direct_descendants_amount(lvl=5) >= 3:
+            lvl = 6
+        elif self.total_descendants >= 800 and self.direct_descendants >= 12 and self.get_direct_descendants_amount(lvl=4) >= 3:
+            lvl = 5
+        elif self.total_descendants >= 300 and self.direct_descendants >= 8 and self.get_direct_descendants_amount(lvl=3) >= 3:
+            lvl = 4
+        elif self.total_descendants >= 100 and self.direct_descendants >= 5 and self.get_direct_descendants_amount(lvl=2) >= 3:
+            lvl = 3
+        elif self.total_descendants >= 20 and self.direct_descendants >= 3:
+            lvl = 2
 
         if lvl != self.referal_lvl:
             self.referal_lvl = lvl
