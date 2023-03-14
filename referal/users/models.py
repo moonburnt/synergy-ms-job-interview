@@ -79,7 +79,7 @@ class ReferalUserModel(LifecycleModelMixin, models.Model):
 
         return counter
 
-    def update_lvl(self):
+    def update_lvl(self, save: bool = True):
         lvl = 1
 
         if self.total_descendants >= 20:
@@ -112,9 +112,10 @@ class ReferalUserModel(LifecycleModelMixin, models.Model):
 
         if lvl != self.referal_lvl:
             self.referal_lvl = lvl
-            self.save(
-                update_fields=("referal_lvl",),
-            )
+            if save:
+                self.save(
+                    update_fields=("referal_lvl",),
+                )
 
     def recursively_update_parent_lvls(self):
         if self.invited_by:
