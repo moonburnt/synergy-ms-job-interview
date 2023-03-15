@@ -15,10 +15,14 @@ from json import load
 
 log = logging.getLogger(__name__)
 
+
 def _get_descendants_from_list(storage: list, lvl: int) -> int:
     return len([i for i in storage if i == lvl])
 
-def _get_flat_user_data_from_json(d: dict, ref_list:list, invited_by: Optional[ReferalUserModel] = None) -> Tuple[int, int]:
+
+def _get_flat_user_data_from_json(
+    d: dict, ref_list: list, invited_by: Optional[ReferalUserModel] = None
+) -> Tuple[int, int]:
     # No safety checks for format validness, for now
     ref_id = d["id"]
     user_info = [ref_id, invited_by]
@@ -33,9 +37,9 @@ def _get_flat_user_data_from_json(d: dict, ref_list:list, invited_by: Optional[R
     if isinstance(d["refs"], list) and direct_desc > 0:
         for i in d["refs"]:
             desc_count, desc_lvl = _get_flat_user_data_from_json(
-                d = i,
-                invited_by = ref_id,
-                ref_list = ref_list,
+                d=i,
+                invited_by=ref_id,
+                ref_list=ref_list,
             )
             direct_desc_levels.append(desc_lvl)
             total_desc += desc_count
@@ -56,7 +60,7 @@ def _get_flat_user_data_from_json(d: dict, ref_list:list, invited_by: Optional[R
 def _batch_update_users(user_data):
     for i in user_data:
         instance = ReferalUserModel.objects.get(referal_id=i[0])
-        referal_id=i[1]
+        referal_id = i[1]
         if referal_id is not None:
             instance.invited_by = ReferalUserModel.objects.get(referal_id=referal_id)
         instance.referal_lvl = i[3]
@@ -70,15 +74,21 @@ def add_users_from_json(path_to_json: Union[str, Path]):
     print("Fetching users")
     user_data = []
     _get_flat_user_data_from_json(
-        d = data,
-        ref_list = user_data,
+        d=data,
+        ref_list=user_data,
     )
 
     print("Creating users")
-    create_user_data = (ReferalUserModel(referal_id = i[0]) for i in user_data)
+    create_user_data = (ReferalUserModel(referal_id=i[0]) for i in user_data)
     ReferalUserModel.objects.bulk_create(create_user_data)
 
     print("Updating users")
-    ReferalUserModel.objects.bulk_update(_batch_update_users(user_data), fields=("invited_by", "referal_lvl",))
+    ReferalUserModel.objects.bulk_update(
+        _batch_update_users(user_data),
+        fields=(
+            "invited_by",
+            "referal_lvl",
+        ),
+    )
 
     print("Done")

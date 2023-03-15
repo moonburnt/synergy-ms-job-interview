@@ -28,8 +28,8 @@ class ReferalUserModel(LifecycleModelMixin, models.Model):
     )
 
     # Deposit is amount of money stored by our user.
-    # Once it reach the hardcoded value of 120$, everyone who invited that
-    # user get their referal money and affected_parents_deposit changes to True
+    # Each time it reaches the hardcoded value of 120$, everyone who invited that
+    # user get their referal money
     deposit = models.DecimalField(
         max_digits=10,
         decimal_places=2,
@@ -43,9 +43,9 @@ class ReferalUserModel(LifecycleModelMixin, models.Model):
         decimal_places=2,
         default=Decimal(0.00),
     )
-    affected_parents_deposit = models.BooleanField(
-        default=False,
-        editable=False,
+
+    granted_referal_bonuses_counter = models.IntegerField(
+        default=0,
     )
 
     def get_direct_descendants_amount(self, lvl: Optional[int] = None):
@@ -61,7 +61,8 @@ class ReferalUserModel(LifecycleModelMixin, models.Model):
     @property
     def total_descendants(self) -> int:
         with connection.cursor() as cursor:
-            cursor.execute("""
+            cursor.execute(
+                """
                 with RECURSIVE get_descendants as (
                     select id, invited_by_id
                     from users_referalusermodel
@@ -74,21 +75,41 @@ class ReferalUserModel(LifecycleModelMixin, models.Model):
                 select COUNT(*)
                 from get_descendants
                 where id <> %s;
-            """, [self.id, self.id])
-            counter: int =  cursor.fetchone()[0]
+            """,
+                [self.id, self.id],
+            )
+            counter: int = cursor.fetchone()[0]
 
         return counter
 
     @staticmethod
-    def calculate_user_lvl(total_desc: int, direct_desc: int, desc_storage, get_descendants: callable) -> int:
+    def calculate_user_lvl(
+        total_desc: int, direct_desc: int, desc_storage, get_descendants: callable
+    ) -> int:
         lvl = 1
-        if total_desc >= 1500 and direct_desc >= 20 and get_descendants(desc_storage, 5) >= 3:
+        if (
+            total_desc >= 1500
+            and direct_desc >= 20
+            and get_descendants(desc_storage, 5) >= 3
+        ):
             lvl = 6
-        elif total_desc >= 800 and direct_desc >= 12 and get_descendants(desc_storage, 4) >= 3:
+        elif (
+            total_desc >= 800
+            and direct_desc >= 12
+            and get_descendants(desc_storage, 4) >= 3
+        ):
             lvl = 5
-        elif total_desc >= 300 and direct_desc >= 8 and get_descendants(desc_storage, 3) >= 3:
+        elif (
+            total_desc >= 300
+            and direct_desc >= 8
+            and get_descendants(desc_storage, 3) >= 3
+        ):
             lvl = 4
-        elif total_desc >= 100 and direct_desc >= 5 and get_descendants(desc_storage, 2) >= 3:
+        elif (
+            total_desc >= 100
+            and direct_desc >= 5
+            and get_descendants(desc_storage, 2) >= 3
+        ):
             lvl = 3
         elif total_desc >= 20 and direct_desc >= 3:
             lvl = 2
@@ -97,10 +118,10 @@ class ReferalUserModel(LifecycleModelMixin, models.Model):
 
     def update_lvl(self, save: bool = True):
         lvl = ReferalUserModel.calculate_user_lvl(
-            total_desc = self.total_descendants,
-            direct_desc = self.direct_descendants,
-            desc_storage = self,
-            get_descendants = ReferalUserModel.get_direct_descendants_amount,
+            total_desc=self.total_descendants,
+            direct_desc=self.direct_descendants,
+            desc_storage=self,
+            get_descendants=ReferalUserModel.get_direct_descendants_amount,
         )
 
         if lvl != self.referal_lvl:
@@ -181,39 +202,32 @@ class ReferalUserModel(LifecycleModelMixin, models.Model):
                 self.invited_by.save(update_fields=("bonus_deposit",))
 
     def grant_direct_referal_deposit_bonuses(self):
-        if self.affected_parents_deposit:
-            print(f"User {self.referal_id} has already granted bonuses to inviteers")
-            return
-        else:
-            print("Attempting to grant direct referal deposit bonuses")
+        print("Attempting to grant direct referal deposit bonuses")
 
-            if self.invited_by:
-                bonus_money = Decimal(0.00)
-                if self.invited_by.referal_lvl == 1:
-                    bonus_money = Decimal(30.00)
-                elif self.invited_by.referal_lvl == 2:
-                    bonus_money = Decimal(40.00)
-                elif self.invited_by.referal_lvl == 3:
-                    bonus_money = Decimal(50.00)
-                elif self.invited_by.referal_lvl == 4:
-                    bonus_money = Decimal(60.00)
-                elif self.invited_by.referal_lvl == 5:
-                    bonus_money = Decimal(65.00)
-                elif self.invited_by.referal_lvl == 6:
-                    bonus_money = Decimal(70.00)
+        if self.invited_by:
+            bonus_money = Decimal(0.00)
+            if self.invited_by.referal_lvl == 1:
+                bonus_money = Decimal(30.00)
+            elif self.invited_by.referal_lvl == 2:
+                bonus_money = Decimal(40.00)
+            elif self.invited_by.referal_lvl == 3:
+                bonus_money = Decimal(50.00)
+            elif self.invited_by.referal_lvl == 4:
+                bonus_money = Decimal(60.00)
+            elif self.invited_by.referal_lvl == 5:
+                bonus_money = Decimal(65.00)
+            elif self.invited_by.referal_lvl == 6:
+                bonus_money = Decimal(70.00)
 
-                self.invited_by.grant_indirect_referal_deposit_bonuses()
+            self.invited_by.grant_indirect_referal_deposit_bonuses()
 
-                print(
-                    f"Granting {bonus_money} to {self.invited_by.referal_id} as direct deposit bonus"
-                )
-                self.invited_by.bonus_deposit += bonus_money
-                self.invited_by.save(
-                    update_fields=("bonus_deposit",),
-                )
-
-            self.affected_parents_deposit = True
-            self.save(update_fields=("affected_parents_deposit",))
+            print(
+                f"Granting {bonus_money} to {self.invited_by.referal_id} as direct deposit bonus"
+            )
+            self.invited_by.bonus_deposit += bonus_money
+            self.invited_by.save(
+                update_fields=("bonus_deposit",),
+            )
 
     # This may be slow if we create multiple users at once without batch_create
     # However, during normal workflow it *should* be fine
@@ -232,13 +246,15 @@ class ReferalUserModel(LifecycleModelMixin, models.Model):
     )
     def perform_on_deposit_hook(self):
         print(f"Performing on deposit hook of {self.referal_id}")
-        if not self.affected_parents_deposit and self.deposit >= 120:
-            self.grant_direct_referal_deposit_bonuses()
 
-            self.affected_parents_deposit = True
-            self.save(
-                update_fields=("affected_parents_deposit",),
-            )
+        # If difference if > 1, it may misbehave.
+        # Probably for range loop should be a good idea, for case when user
+        # puts 120*2 >= at once
+        count: int = self.deposit // 120
+        if count > self.granted_referal_bonuses_counter:
+            self.grant_direct_referal_deposit_bonuses()
+            self.granted_referal_bonuses_counter = count
+            self.save(update_fields=("granted_referal_bonuses_counter",))
 
     def __str__(self):
         return (
