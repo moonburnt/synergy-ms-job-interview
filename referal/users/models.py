@@ -251,6 +251,7 @@ class ReferalUserModel(LifecycleModelMixin, models.Model):
         # Probably for range loop should be a good idea, for case when user
         # puts 120*2 >= at once
         count: int = self.deposit // 120
+
         if count > self.granted_referal_bonuses_counter:
             self.grant_direct_referal_deposit_bonuses()
             self.granted_referal_bonuses_counter = count

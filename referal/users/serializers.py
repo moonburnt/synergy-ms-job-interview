@@ -42,3 +42,9 @@ class AddDepositReferalUserSerializer(serializers.ModelSerializer):
             "referal_id",
             "referal_lvl",
         )
+
+    def save(self, **kwargs):
+        if self.instance:
+            self.validated_data["deposit"] += self.instance.deposit
+
+        super().save(**kwargs)
