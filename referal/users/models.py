@@ -44,10 +44,6 @@ class ReferalUserModel(LifecycleModelMixin, models.Model):
         default=Decimal(0.00),
     )
 
-    granted_referal_bonuses_counter = models.IntegerField(
-        default=0,
-    )
-
     def get_direct_descendants_amount(self, lvl: Optional[int] = None):
         if lvl is None:
             return self.invited.count()
@@ -238,24 +234,6 @@ class ReferalUserModel(LifecycleModelMixin, models.Model):
     def perform_after_create_hook(self):
         self.recursively_update_parent_lvls()
 
-    @hook(
-        AFTER_SAVE,
-        when="deposit",
-        has_changed=True,
-        on_commit=True,
-    )
-    def perform_on_deposit_hook(self):
-        print(f"Performing on deposit hook of {self.referal_id}")
-
-        # If difference if > 1, it may misbehave.
-        # Probably for range loop should be a good idea, for case when user
-        # puts 120*2 >= at once
-        count: int = self.deposit // 120
-
-        if count > self.granted_referal_bonuses_counter:
-            self.grant_direct_referal_deposit_bonuses()
-            self.granted_referal_bonuses_counter = count
-            self.save(update_fields=("granted_referal_bonuses_counter",))
 
     def __str__(self):
         return (

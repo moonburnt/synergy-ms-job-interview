@@ -44,7 +44,10 @@ class AddDepositReferalUserSerializer(serializers.ModelSerializer):
         )
 
     def save(self, **kwargs):
-        if self.instance:
-            self.validated_data["deposit"] += self.instance.deposit
+        requested_deposit = self.validated_data["deposit"]
+        self.validated_data["deposit"] += self.instance.deposit
 
         super().save(**kwargs)
+
+        if requested_deposit >= 120:
+            self.instance.grant_direct_referal_deposit_bonuses()
