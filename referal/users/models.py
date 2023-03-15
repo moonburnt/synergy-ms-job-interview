@@ -137,7 +137,8 @@ class ReferalUserModel(LifecycleModelMixin, models.Model):
             bonus_money = Decimal(0.00)
 
             if self.invited_by.referal_lvl == 2:
-                bonus_money = Decimal(10.00)
+                if self.referal_lvl == 1:
+                    bonus_money = Decimal(10.00)
             elif self.invited_by.referal_lvl == 3:
                 if self.referal_lvl == 1:
                     bonus_money = Decimal(20.00)
