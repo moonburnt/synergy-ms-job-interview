@@ -132,21 +132,21 @@ class ReferalUserModel(LifecycleModelMixin, models.Model):
             self.invited_by.update_lvl()
             self.invited_by.recursively_update_parent_lvls()
 
-    def grant_indirect_referal_deposit_bonuses(self) -> Decimal:
+    def grant_indirect_referal_deposit_bonuses(self) -> Optional[Decimal]:
         """Grant deposit bonus to parent, after user obtained its own"""
 
         print("Attempting to grant indirect referal deposit bonuses")
 
         # I assume this one is not recursive?
         if not self.invited_by:
-            return Decimal(0.00)
+            return
 
         if self.referal_lvl >= 3:
             if self.invited_by.referal_lvl <= self.referal_lvl:
                 # Not doing anything, as members of lvl 3 or above don't grant
                 # referal deposit money if their level match or beat their
                 # inviteer's lvl
-                return Decimal(0.00)
+                return
         else:
             # I think there are some cases when this may not work the intended way?
             # Not quite sure, just a thought that struggled my mind #TODO
@@ -218,7 +218,9 @@ class ReferalUserModel(LifecycleModelMixin, models.Model):
                 bonus_money = Decimal(70.00)
 
             reduce_by: Decimal = bonus_money
-            reduce_by += self.invited_by.grant_indirect_referal_deposit_bonuses()
+            indirect_reduce: Optional[Decimal] = self.invited_by.grant_indirect_referal_deposit_bonuses()
+            if indirect_reduce is not None:
+                reduce_by += indirect_reduce
             self.deposit -= reduce_by
             self.save(
                 update_fields = ("deposit",)
