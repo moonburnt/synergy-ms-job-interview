@@ -15,6 +15,8 @@ from json import load
 
 log = logging.getLogger(__name__)
 
+def _get_descendants_from_list(storage: list, lvl: int) -> int:
+    return len([i for i in storage if i == lvl])
 
 def _get_flat_user_data_from_json(d: dict, ref_list:list, invited_by: Optional[ReferalUserModel] = None) -> Tuple[int, int]:
     # No safety checks for format validness, for now
@@ -38,17 +40,12 @@ def _get_flat_user_data_from_json(d: dict, ref_list:list, invited_by: Optional[R
             direct_desc_levels.append(desc_lvl)
             total_desc += desc_count
 
-    lvl = 1
-    if total_desc >= 1500 and direct_desc >= 20 and len([i for i in direct_desc_levels if i == 5]) >= 3:
-        lvl = 6
-    elif total_desc >= 800 and direct_desc >= 12 and len([i for i in direct_desc_levels if i == 4]) >= 3:
-        lvl = 5
-    elif total_desc >= 300 and direct_desc >= 8 and len([i for i in direct_desc_levels if i == 3]) >= 3:
-        lvl = 4
-    elif total_desc >= 100 and direct_desc >= 5 and len([i for i in direct_desc_levels if i == 2]) >= 3:
-        lvl = 3
-    elif total_desc >= 20 and direct_desc >= 3:
-        lvl = 2
+    lvl = ReferalUserModel.calculate_user_lvl(
+        total_desc=total_desc,
+        direct_desc=direct_desc,
+        desc_storage=direct_desc_levels,
+        get_descendants=_get_descendants_from_list,
+    )
 
     user_info.append(total_desc)
     user_info.append(lvl)

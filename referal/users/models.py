@@ -79,19 +79,29 @@ class ReferalUserModel(LifecycleModelMixin, models.Model):
 
         return counter
 
-    def update_lvl(self, save: bool = True):
+    @staticmethod
+    def calculate_user_lvl(total_desc: int, direct_desc: int, desc_storage, get_descendants: callable) -> int:
         lvl = 1
-
-        if self.total_descendants >= 1500 and self.direct_descendants >= 20 and self.get_direct_descendants_amount(lvl=5) >= 3:
+        if total_desc >= 1500 and direct_desc >= 20 and get_descendants(desc_storage, 5) >= 3:
             lvl = 6
-        elif self.total_descendants >= 800 and self.direct_descendants >= 12 and self.get_direct_descendants_amount(lvl=4) >= 3:
+        elif total_desc >= 800 and direct_desc >= 12 and get_descendants(desc_storage, 4) >= 3:
             lvl = 5
-        elif self.total_descendants >= 300 and self.direct_descendants >= 8 and self.get_direct_descendants_amount(lvl=3) >= 3:
+        elif total_desc >= 300 and direct_desc >= 8 and get_descendants(desc_storage, 3) >= 3:
             lvl = 4
-        elif self.total_descendants >= 100 and self.direct_descendants >= 5 and self.get_direct_descendants_amount(lvl=2) >= 3:
+        elif total_desc >= 100 and direct_desc >= 5 and get_descendants(desc_storage, 2) >= 3:
             lvl = 3
-        elif self.total_descendants >= 20 and self.direct_descendants >= 3:
+        elif total_desc >= 20 and direct_desc >= 3:
             lvl = 2
+
+        return lvl
+
+    def update_lvl(self, save: bool = True):
+        lvl = ReferalUserModel.calculate_user_lvl(
+            total_desc = self.total_descendants,
+            direct_desc = self.direct_descendants,
+            desc_storage = self,
+            get_descendants = ReferalUserModel.get_direct_descendants_amount,
+        )
 
         if lvl != self.referal_lvl:
             self.referal_lvl = lvl
