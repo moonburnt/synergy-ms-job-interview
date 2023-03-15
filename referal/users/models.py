@@ -218,13 +218,13 @@ class ReferalUserModel(LifecycleModelMixin, models.Model):
                 bonus_money = Decimal(70.00)
 
             reduce_by: Decimal = bonus_money
-            indirect_reduce: Optional[Decimal] = self.invited_by.grant_indirect_referal_deposit_bonuses()
+            indirect_reduce: Optional[
+                Decimal
+            ] = self.invited_by.grant_indirect_referal_deposit_bonuses()
             if indirect_reduce is not None:
                 reduce_by += indirect_reduce
             self.deposit -= reduce_by
-            self.save(
-                update_fields = ("deposit",)
-            )
+            self.save(update_fields=("deposit",))
 
             print(
                 f"Granting {bonus_money} to {self.invited_by.referal_id} as direct deposit bonus"
@@ -242,7 +242,6 @@ class ReferalUserModel(LifecycleModelMixin, models.Model):
     )
     def perform_after_create_hook(self):
         self.recursively_update_parent_lvls()
-
 
     def __str__(self):
         return (
