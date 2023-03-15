@@ -132,21 +132,21 @@ class ReferalUserModel(LifecycleModelMixin, models.Model):
             self.invited_by.update_lvl()
             self.invited_by.recursively_update_parent_lvls()
 
-    def grant_indirect_referal_deposit_bonuses(self):
+    def grant_indirect_referal_deposit_bonuses(self) -> Decimal:
         """Grant deposit bonus to parent, after user obtained its own"""
 
         print("Attempting to grant indirect referal deposit bonuses")
 
         # I assume this one is not recursive?
         if not self.invited_by:
-            return
+            return Decimal(0.00)
 
         if self.referal_lvl >= 3:
             if self.invited_by.referal_lvl <= self.referal_lvl:
                 # Not doing anything, as members of lvl 3 or above don't grant
                 # referal deposit money if their level match or beat their
                 # inviteer's lvl
-                return
+                return Decimal(0.00)
         else:
             # I think there are some cases when this may not work the intended way?
             # Not quite sure, just a thought that struggled my mind #TODO
@@ -197,6 +197,8 @@ class ReferalUserModel(LifecycleModelMixin, models.Model):
 
                 self.invited_by.save(update_fields=("bonus_deposit",))
 
+            return bonus_money
+
     def grant_direct_referal_deposit_bonuses(self):
         print("Attempting to grant direct referal deposit bonuses")
 
@@ -215,7 +217,12 @@ class ReferalUserModel(LifecycleModelMixin, models.Model):
             elif self.invited_by.referal_lvl == 6:
                 bonus_money = Decimal(70.00)
 
-            self.invited_by.grant_indirect_referal_deposit_bonuses()
+            reduce_by: Decimal = bonus_money
+            reduce_by += self.invited_by.grant_indirect_referal_deposit_bonuses()
+            self.deposit -= reduce_by
+            self.save(
+                update_fields = ("deposit",)
+            )
 
             print(
                 f"Granting {bonus_money} to {self.invited_by.referal_id} as direct deposit bonus"
