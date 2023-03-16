@@ -132,7 +132,7 @@ class ReferalUserModel(LifecycleModelMixin, models.Model):
             self.invited_by.update_lvl()
             self.invited_by.recursively_update_parent_lvls()
 
-    def grant_indirect_referal_deposit_bonuses(self) -> Optional[Decimal]:
+    def grant_indirect_referal_deposit_bonuses(self, for_item) -> Optional[Decimal]:
         """Grant deposit bonus to parent, after user obtained its own"""
 
         print("Attempting to grant indirect referal deposit bonuses")
@@ -141,8 +141,10 @@ class ReferalUserModel(LifecycleModelMixin, models.Model):
         if not self.invited_by:
             return
 
-        if self.referal_lvl >= 3:
-            if self.invited_by.referal_lvl <= self.referal_lvl:
+        referal_lvl = for_item.referal_lvl
+
+        if referal_lvl >= 3:
+            if self.invited_by.referal_lvl <= referal_lvl:
                 # Not doing anything, as members of lvl 3 or above don't grant
                 # referal deposit money if their level match or beat their
                 # inviteer's lvl
@@ -154,39 +156,39 @@ class ReferalUserModel(LifecycleModelMixin, models.Model):
             bonus_money = Decimal(0.00)
 
             if self.invited_by.referal_lvl == 2:
-                if self.referal_lvl == 1:
+                if referal_lvl == 1:
                     bonus_money = Decimal(10.00)
             elif self.invited_by.referal_lvl == 3:
-                if self.referal_lvl == 1:
+                if referal_lvl == 1:
                     bonus_money = Decimal(20.00)
-                elif self.referal_lvl == 2:
+                elif referal_lvl == 2:
                     bonus_money = Decimal(10.00)
             elif self.invited_by.referal_lvl == 4:
-                if self.referal_lvl == 1:
+                if referal_lvl == 1:
                     bonus_money = Decimal(30.00)
-                elif self.referal_lvl == 2:
+                elif referal_lvl == 2:
                     bonus_money = Decimal(20.00)
-                elif self.referal_lvl == 3:
+                elif referal_lvl == 3:
                     bonus_money = Decimal(10.00)
             elif self.invited_by.referal_lvl == 5:
-                if self.referal_lvl == 1:
+                if referal_lvl == 1:
                     bonus_money = Decimal(35.00)
-                elif self.referal_lvl == 2:
+                elif referal_lvl == 2:
                     bonus_money = Decimal(25.00)
-                elif self.referal_lvl == 3:
+                elif referal_lvl == 3:
                     bonus_money = Decimal(15.00)
-                elif self.referal_lvl == 4:
+                elif referal_lvl == 4:
                     bonus_money = Decimal(5.00)
             elif self.invited_by.referal_lvl == 6:
-                if self.referal_lvl == 1:
+                if referal_lvl == 1:
                     bonus_money = Decimal(40.00)
-                elif self.referal_lvl == 2:
+                elif referal_lvl == 2:
                     bonus_money = Decimal(30.00)
-                elif self.referal_lvl == 3:
+                elif referal_lvl == 3:
                     bonus_money = Decimal(20.00)
-                elif self.referal_lvl == 4:
+                elif referal_lvl == 4:
                     bonus_money = Decimal(10.00)
-                elif self.referal_lvl == 5:
+                elif referal_lvl == 5:
                     bonus_money = Decimal(5.00)
 
             if bonus_money > 0:
@@ -197,7 +199,15 @@ class ReferalUserModel(LifecycleModelMixin, models.Model):
 
                 self.invited_by.save(update_fields=("bonus_deposit",))
 
-            return bonus_money
+            total_bonuses = bonus_money
+            parent_bonuses = ReferalUserModel.grant_indirect_referal_deposit_bonuses(
+                self.invited_by,
+                for_item = for_item,
+            )
+            if parent_bonuses is not None:
+                total_bonuses += parent_bonuses
+
+            return total_bonuses
 
     def grant_direct_referal_deposit_bonuses(self):
         print("Attempting to grant direct referal deposit bonuses")
@@ -220,7 +230,7 @@ class ReferalUserModel(LifecycleModelMixin, models.Model):
             reduce_by: Decimal = bonus_money
             indirect_reduce: Optional[
                 Decimal
-            ] = self.invited_by.grant_indirect_referal_deposit_bonuses()
+            ] = self.invited_by.grant_indirect_referal_deposit_bonuses(self.invited_by)
             if indirect_reduce is not None:
                 reduce_by += indirect_reduce
             self.deposit -= reduce_by
