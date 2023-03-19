@@ -132,7 +132,7 @@ class ReferalUserModel(LifecycleModelMixin, models.Model):
             self.invited_by.update_lvl()
             self.invited_by.recursively_update_parent_lvls()
 
-    def grant_indirect_referal_deposit_bonuses(self, for_item) -> Optional[Decimal]:
+    def grant_indirect_referal_deposit_bonuses(self, from_deposit:bool) -> Optional[Decimal]:
         """Grant deposit bonus to parent, after user obtained its own"""
 
         print("Attempting to grant indirect referal deposit bonuses")
@@ -141,7 +141,7 @@ class ReferalUserModel(LifecycleModelMixin, models.Model):
         if not self.invited_by:
             return
 
-        referal_lvl = for_item.referal_lvl
+        referal_lvl = self.referal_lvl
 
         if referal_lvl >= 3:
             if self.invited_by.referal_lvl <= referal_lvl:
@@ -196,16 +196,22 @@ class ReferalUserModel(LifecycleModelMixin, models.Model):
                     f"Granting {bonus_money} bonuses to {self.invited_by.referal_id} as indirect deposit bonus"
                 )
                 self.invited_by.bonus_deposit += bonus_money
-
                 self.invited_by.save(update_fields=("bonus_deposit",))
+
 
             total_bonuses = bonus_money
             parent_bonuses = ReferalUserModel.grant_indirect_referal_deposit_bonuses(
                 self.invited_by,
-                for_item = for_item,
+                from_deposit=False,
             )
             if parent_bonuses is not None:
-                total_bonuses += parent_bonuses
+                if not from_deposit:
+                    self.bonus_deposit -= parent_bonuses
+                    self.save(
+                        update_fields=("bonus_deposit",)
+                    )
+                else:
+                    total_bonuses += parent_bonuses
 
             return total_bonuses
 
@@ -230,7 +236,7 @@ class ReferalUserModel(LifecycleModelMixin, models.Model):
             reduce_by: Decimal = bonus_money
             indirect_reduce: Optional[
                 Decimal
-            ] = self.invited_by.grant_indirect_referal_deposit_bonuses(self.invited_by)
+            ] = self.invited_by.grant_indirect_referal_deposit_bonuses(True)
             if indirect_reduce is not None:
                 reduce_by += indirect_reduce
             self.deposit -= reduce_by

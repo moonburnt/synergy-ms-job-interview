@@ -7,6 +7,7 @@ from json import load
 
 log = logging.getLogger(__name__)
 
+GRANT_DEPOSIT: int = 120
 
 def _get_descendants_from_list(storage: list, lvl: int) -> int:
     return len([i for i in storage if i == lvl])
@@ -49,19 +50,19 @@ def _get_flat_user_data_from_json(
     return total_desc, lvl
 
 
-def _batch_update_users(user_data):
+def _batch_update_users(user_data, grant_deposit: int = GRANT_DEPOSIT):
     for i in user_data:
         instance = ReferalUserModel.objects.get(referal_id=i[0])
         referal_id = i[1]
         if referal_id is not None:
             instance.invited_by = ReferalUserModel.objects.get(referal_id=referal_id)
         instance.referal_lvl = i[3]
-        instance.deposit = 120
+        instance.deposit = grant_deposit
         yield instance
 
 
-def grant_indirect_referal_deposit_bonuses(
-    item: dict, for_item: dict, storage: dict
+def _grant_indirect_referal_deposit_bonuses(
+    item: dict, from_deposit: bool, storage: dict
 ) -> Optional[Decimal]:
     """Grant deposit bonus to parent, after user obtained its own"""
 
@@ -71,7 +72,7 @@ def grant_indirect_referal_deposit_bonuses(
     else:
         invited_by = storage[invited_by]
 
-    referal_lvl = for_item["referal_lvl"]
+    referal_lvl = item["referal_lvl"]
     invited_by_lvl = invited_by["referal_lvl"]
 
     if referal_lvl >= 3:
@@ -123,14 +124,21 @@ def grant_indirect_referal_deposit_bonuses(
             invited_by["bonus_deposit"] += bonus_money
 
         total_bonuses = bonus_money
-        parent_bonuses = grant_indirect_referal_deposit_bonuses(invited_by, for_item, storage)
+        parent_bonuses = _grant_indirect_referal_deposit_bonuses(
+            item = invited_by,
+            from_deposit = False,
+            storage = storage,
+        )
+
         if parent_bonuses is not None:
-            total_bonuses += parent_bonuses
+            if not from_deposit:
+                item["bonus_deposit"] -= parent_bonuses
+            else:
+                total_bonuses += parent_bonuses
 
         return total_bonuses
 
-
-def grant_direct_referal_deposit_bonuses(i: dict, storage: dict):
+def grant_referal_deposit_bonuses(i: dict, storage: dict):
     if i["invited_by"] is not None:
         invited_by = storage[i["invited_by"]]
         bonus_money = Decimal(0.00)
@@ -151,8 +159,10 @@ def grant_direct_referal_deposit_bonuses(i: dict, storage: dict):
             bonus_money = Decimal(70.00)
 
         reduce_by: Decimal = bonus_money
-        indirect_reduce: Optional[Decimal] = grant_indirect_referal_deposit_bonuses(
-            invited_by, invited_by, storage
+        indirect_reduce: Optional[Decimal] = _grant_indirect_referal_deposit_bonuses(
+            item = invited_by,
+            from_deposit=True,
+            storage = storage,
         )
         if indirect_reduce is not None:
             reduce_by += indirect_reduce
@@ -168,6 +178,14 @@ def _batch_update_ref_rewards(references: dict):
         instance.deposit = i["deposit"]
         instance.bonus_deposit = i["bonus_deposit"]
         yield instance
+
+def validate(grant_deposit:int = GRANT_DEPOSIT):
+    from django.db.models import Sum, F
+
+    assert ReferalUserModel.objects.filter(deposit__lt=(GRANT_DEPOSIT-70)).count() == 0
+    assert ReferalUserModel.objects.filter(bonus_deposit__lt=0).count() == 0
+    assert ReferalUserModel.objects.filter(invited_by__isnull=False, deposit=120).count() == 0
+    assert ReferalUserModel.objects.values_list("deposit", "bonus_deposit").aggregate(deposit_total=Sum(F("deposit") + F("bonus_deposit")))["deposit_total"] == ReferalUserModel.objects.count() * GRANT_DEPOSIT
 
 
 def add_users_from_json(path_to_json: Union[str, Path]):
@@ -207,7 +225,7 @@ def add_users_from_json(path_to_json: Union[str, Path]):
         }
 
     for i in references.keys():
-        grant_direct_referal_deposit_bonuses(references[i], references)
+        grant_referal_deposit_bonuses(references[i], references)
 
     ReferalUserModel.objects.bulk_update(
         _batch_update_ref_rewards(references),
@@ -216,5 +234,8 @@ def add_users_from_json(path_to_json: Union[str, Path]):
             "bonus_deposit",
         ),
     )
+
+    print("Validating")
+    validate()
 
     print("Done")
