@@ -62,7 +62,7 @@ def _batch_update_users(user_data, grant_deposit: int = GRANT_DEPOSIT):
 
 
 def _grant_indirect_referal_deposit_bonuses(
-    item: dict, from_deposit: bool, storage: dict
+    item: dict, storage: dict
 ) -> Optional[Decimal]:
     """Grant deposit bonus to parent, after user obtained its own"""
 
@@ -126,15 +126,11 @@ def _grant_indirect_referal_deposit_bonuses(
         total_bonuses = bonus_money
         parent_bonuses = _grant_indirect_referal_deposit_bonuses(
             item = invited_by,
-            from_deposit = False,
             storage = storage,
         )
 
         if parent_bonuses is not None:
-            if not from_deposit:
-                item["bonus_deposit"] -= parent_bonuses
-            else:
-                total_bonuses += parent_bonuses
+            total_bonuses += parent_bonuses
 
         return total_bonuses
 
@@ -161,7 +157,6 @@ def grant_referal_deposit_bonuses(i: dict, storage: dict):
         reduce_by: Decimal = bonus_money
         indirect_reduce: Optional[Decimal] = _grant_indirect_referal_deposit_bonuses(
             item = invited_by,
-            from_deposit=True,
             storage = storage,
         )
         if indirect_reduce is not None:

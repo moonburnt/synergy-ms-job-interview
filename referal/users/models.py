@@ -132,7 +132,7 @@ class ReferalUserModel(LifecycleModelMixin, models.Model):
             self.invited_by.update_lvl()
             self.invited_by.recursively_update_parent_lvls()
 
-    def grant_indirect_referal_deposit_bonuses(self, from_deposit:bool) -> Optional[Decimal]:
+    def grant_indirect_referal_deposit_bonuses(self) -> Optional[Decimal]:
         """Grant deposit bonus to parent, after user obtained its own"""
 
         print("Attempting to grant indirect referal deposit bonuses")
@@ -202,16 +202,9 @@ class ReferalUserModel(LifecycleModelMixin, models.Model):
             total_bonuses = bonus_money
             parent_bonuses = ReferalUserModel.grant_indirect_referal_deposit_bonuses(
                 self.invited_by,
-                from_deposit=False,
             )
             if parent_bonuses is not None:
-                if not from_deposit:
-                    self.bonus_deposit -= parent_bonuses
-                    self.save(
-                        update_fields=("bonus_deposit",)
-                    )
-                else:
-                    total_bonuses += parent_bonuses
+                total_bonuses += parent_bonuses
 
             return total_bonuses
 
